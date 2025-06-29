@@ -1,0 +1,106 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fingyan-ingress
+  namespace: fingyan-ns
+  annotations:
+    # --- Ingress Controller Specific Annotations ---
+    # Example for NGINX Ingress Controller:
+    kubernetes.io/ingress.class: "nginx"
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2 # Not needed if backend expects /api prefix
+    # nginx.ingress.kubernetes.io/use-regex: "true" # Not needed for simple prefix match
+    # For large file uploads if needed by any endpoint (e.g. portfolio import)
+    # nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+    # --- Cert-Manager Annotations for Automatic TLS (Example) ---
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod" # Or your specific issuer
+    # kubernetes.io/tls-acme: "true" # For older cert-manager versions
+
+    # --- Other common annotations ---
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true" # Force HTTPS
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true" # More forceful redirect
+
+spec:
+  # --- TLS Configuration ---
+  # Option 1: Using cert-manager (preferred for automatic certificate management)
+  # tls:
+  #   - hosts:
+  #       - your-domain.com # Replace with your actual domain
+  #     secretName: fingyan-tls-cert # cert-manager will create/manage this secret
+
+  # Option 2: Manual TLS secret (you create the secret 'manual-tls-fingyan' with your cert and key)
+  # tls:
+  # - hosts:
+  #     - your-domain.com
+  #   secretName: manual-tls-fingyan
+
+  rules:
+    - host: your-fingyan-app.com # Replace with your desired hostname
+      http:
+        paths:
+          - path: /api # Matches /api and all subpaths like /api/market, /api/portfolio etc.
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service # Name of your FastAPI backend K8s Service
+                port:
+                  name: http-backend # Named port of the backend service (e.g., 8000)
+
+          - path: / # Matches the root path and everything else for the frontend
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service # Name of your Streamlit frontend K8s Service
+                port:
+                  name: http-frontend # Named port of the frontend service (e.g., 80 for service, targeting 8501 on pod)
+                  # number: 80 # Or specify by number
+
+# Notes:
+# 1. Replace `your-fingyan-app.com` with the actual domain/hostname you'll use.
+#    For local testing (e.g., Minikube), you might use a specific IP or a host entry + `minikube tunnel`.
+# 2. Ensure your Ingress controller is installed and configured in the cluster.
+#    The annotations (like `kubernetes.io/ingress.class`) might vary based on your controller.
+# 3. For TLS:
+#    - Using `cert-manager` is highly recommended for production to automate Let's Encrypt certificates.
+#    - If using manual TLS, you need to create a Kubernetes secret (e.g., `manual-tls-fingyan`) containing `tls.crt` and `tls.key`.
+# 4. The `nginx.ingress.kubernetes.io/rewrite-target: /$2` and `use-regex: "true"` with `path: /api(/|$)(.*)`
+#    is a common pattern for NGINX ingress to strip the `/api` prefix when forwarding to the backend if your backend
+#    API routes don't inherently expect `/api` (e.g., if backend routes are defined as `/market`, not `/api/market`).
+#    If your FastAPI app's routes already include `/api` (e.g. `app.include_router(..., prefix="/api/market")` in main.py,
+#    but then router itself has `/market`), then you might not need rewrite or need a different one.
+#    Given our FastAPI setup (e.g. `@router.get("/stock/{symbol}")` under a router included with `prefix="/api/market"`),
+#    the backend expects paths like `/api/market/stock/{symbol}`.
+#    So, if Ingress matches `/api`, it should forward `/api/...` as is.
+#    A simpler path definition for backend might be:
+#          - path: /api
+#            pathType: Prefix
+#    This would forward `/api/*` to the backend. The rewrite used above is more flexible if the backend itself doesn't expect the /api prefix on its internal routes.
+#    Let's simplify the backend path for now, assuming the backend service handles /api/... directly.
+#    If the backend router is already prefixed with /api in main.py, then no rewrite is needed for that part.
+#    The current FastAPI setup has app.include_router(market_router.router, prefix="/api/market", ...).
+#    So, the path passed to backend service should indeed start with /api/market.
+#    The Ingress path `/api` with `pathType: Prefix` should correctly forward `/api/market/...` to the backend.
+#    The rewrite `/$2` would strip `/api` if the path was `/api/(.*)`.
+#    Let's remove the rewrite for now as the backend expects `/api/...` paths.
+
+# Corrected path for backend if no rewrite is desired and backend handles /api/*
+# (Assuming NGINX Ingress or similar that supports this well)
+# paths:
+#   - path: /api
+#     pathType: Prefix
+#     backend:
+#       service:
+#         name: backend-service
+#         port:
+#           name: http-backend
+# This is generally fine. The original path with regex is also a common way to capture and optionally rewrite.
+# For now, I'll keep the regex version as it's more explicit about capturing subpaths for potential rewrites,
+# but will comment out the rewrite-target as our backend is already prefixed with /api.
+# If using nginx.ingress.kubernetes.io/rewrite-target: /$2, the backend path should be /api/(.*)
+# If no rewrite, backend path /api and pathType Prefix is fine.
+# Let's assume a common NGINX setup where prefix stripping is sometimes desired if backend doesn't expect the prefix.
+# Since our backend *does* expect /api, we can simplify.
+# If path: /api, pathType: Prefix -> forwards /api/foo to backend as /api/foo. This is what we want.
+
+# Let's use the simpler /api prefix path.
+# (The file will be created with the more complex regex but with rewrite commented out, then simplified)

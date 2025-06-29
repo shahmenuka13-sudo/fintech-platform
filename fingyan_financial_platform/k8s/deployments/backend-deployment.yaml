@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-app
+  namespace: fingyan-ns
+  labels:
+    app: backend
+    tier: api
+spec:
+  replicas: 2 # Start with 2 replicas, can be adjusted based on load
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+    spec:
+      containers:
+        - name: backend-container
+          image: YOUR_DOCKER_REGISTRY/fingyan-backend:latest # Replace with your actual image path
+          imagePullPolicy: Always # Or IfNotPresent if using 'latest' tag carefully
+          ports:
+            - containerPort: 8000 # Port FastAPI runs on (from backend/Dockerfile)
+              name: http
+          envFrom: # Load all key-value pairs from the ConfigMap as environment variables
+            - configMapRef:
+                name: fingyan-app-config
+          env:
+            # Specific environment variables, including those from secrets
+            - name: PYTHONUNBUFFERED
+              valueFrom:
+                configMapKeyRef:
+                  name: fingyan-app-config
+                  key: PYTHONUNBUFFERED
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            # POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB_NAME are already loaded via envFrom configMapRef
+            # REDIS_HOST, REDIS_PORT are also loaded via envFrom configMapRef
+
+            # If DATABASE_URL is preferred by the app and constructed from components:
+            # One way to construct DATABASE_URL if your app doesn't do it:
+            # (This can be complex with shell escaping in YAML. Simpler if app constructs it.)
+            # - name: DATABASE_URL
+            #   value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB_NAME)"
+            # For this setup, backend/services/database_service.py and backend/alembic/env.py
+            # are already designed to construct DATABASE_URL if component vars are present.
+
+          # Liveness and Readiness Probes for FastAPI backend
+          livenessProbe:
+            httpGet:
+              path: /health # Matches the health check endpoint in main.py
+              port: http # Named port 'http' which is 8000
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m" # 0.2 CPU core
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      # imagePullSecrets: # Add if your image is in a private registry
+      #   - name: your-registry-secret
+---

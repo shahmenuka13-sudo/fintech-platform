@@ -1,0 +1,62 @@
+# Frontend
+streamlit
+plotly
+st-pages # For multi-page navigation
+
+# altair # Alternative charting library
+
+# Backend
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary # For PostgreSQL
+redis
+aiohttp
+python-dotenv # For managing environment variables
+tenacity # For retries
+
+# AI/ML
+prophet # For time-series forecasting
+# huggingface_hub
+# transformers
+# sentencepiece # For some transformers models
+# torch
+# tensorflow
+# lightgbm
+# scikit-learn
+
+# Testing
+pytest
+pytest-cov
+httpx # For FastAPI TestClient
+# playwright
+# selenium
+
+# Monitoring
+sentry-sdk[fastapi]
+
+# Linting & Formatting
+black
+ruff
+mypy
+
+# Other
+requests # General HTTP requests, e.g., for fetching data from external APIs in backend
+pandas # Data manipulation, often used with yfinance and ML
+numpy # Numerical operations, often a dependency for ML libraries
+yfinance # Yahoo Finance data
+# alpha_vantage
+# finnhub-python
+# freecurrencyapi
+# metalpriceapi
+
+# Security (placeholders, specific libraries might be added later)
+# python-jose[cryptography] # For JWTs in OAuth2
+# passlib[bcrypt] # For password hashing
+
+# Deployment
+# gunicorn # Alternative ASGI server for FastAPI
+# docker
+# kubernetes # Client library, if needed for scripting interactions
+
+# CI/CD (Tools are usually installed in GitHub Actions environment directly)

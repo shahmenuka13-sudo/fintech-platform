@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: fingyan-ns
+  labels:
+    app: postgres
+    tier: database
+spec:
+  type: ClusterIP # Default, exposes service on an internal IP in the cluster
+  ports:
+    - port: 5432 # Port the service will be available on
+      targetPort: postgresql # Named port from StatefulSet/Pod spec (or can be 5432 directly)
+      protocol: TCP
+  selector:
+    app: postgres # Selects Pods with label app=postgres
+    tier: database
+---
+# Note: For a StatefulSet, the `serviceName` field in the StatefulSet spec
+# (set to "postgres-service" in postgres-statefulset.yaml) refers to this Service.
+# This service governs the network domain of the StatefulSet. Pods will be accessible
+# via DNS names like `postgres-db-0.postgres-service.fingyan-ns.svc.cluster.local`.
+# The ClusterIP of this service provides a stable endpoint for applications
+# to connect to the PostgreSQL instance(s) selected by the selector.
+# For a single replica StatefulSet, it effectively points to that one pod.

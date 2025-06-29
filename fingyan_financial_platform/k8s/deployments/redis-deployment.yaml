@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache
+  namespace: fingyan-ns
+  labels:
+    app: redis
+    tier: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      tier: cache
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: cache
+    spec:
+      containers:
+        - name: redis
+          image: redis:6-alpine # Match version from docker-compose
+          imagePullPolicy: IfNotPresent
+          args: ["--save", "60 1", "--loglevel", "warning"] # Example: save RDB every 60s if at least 1 key changed
+          ports:
+            - containerPort: 6379
+              name: redisport
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data # Default Redis data directory
+          # Liveness and Readiness Probes for Redis
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m" # 0.1 CPU core
+            limits:
+              memory: "512Mi"
+              cpu: "0.5"
+      volumes: # Define the volume to be used by volumeMounts
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc # Request a PersistentVolumeClaim named redis-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: fingyan-ns
+  labels:
+    app: redis
+    tier: cache
+spec:
+  accessModes:
+    - ReadWriteOnce # Suitable for a single Redis instance
+  resources:
+    requests:
+      storage: 1Gi # Request 1 GB of storage for Redis data. Adjust as needed.
+  # storageClassName: "your-storage-class" # Optional: if you have specific storage classes
+---

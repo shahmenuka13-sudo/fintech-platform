@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: fingyan-ns
+  labels:
+    app: frontend
+    tier: web
+spec:
+  replicas: 2 # Start with 2 replicas for availability
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+    spec:
+      containers:
+        - name: frontend-container
+          image: YOUR_DOCKER_REGISTRY/fingyan-frontend:latest # Replace with your actual image path
+          imagePullPolicy: Always # Or IfNotPresent
+          ports:
+            - containerPort: 8501 # Port Streamlit runs on (from frontend/Dockerfile)
+              name: http-streamlit
+          envFrom:
+            - configMapRef:
+                name: fingyan-app-config # Loads FASTAPI_BACKEND_URL, STREAMLIT_SERVER_PORT etc.
+          env:
+             - name: PYTHONUNBUFFERED # Already in configmap, but can be explicit
+               valueFrom:
+                 configMapKeyRef:
+                   name: fingyan-app-config
+                   key: PYTHONUNBUFFERED
+            # FASTAPI_BACKEND_URL is loaded from configMapRef via envFrom
+            # STREAMLIT_SERVER_PORT is also loaded from configMapRef via envFrom
+
+          # Liveness and Readiness Probes for Streamlit frontend
+          # Streamlit doesn't have a dedicated health endpoint by default.
+          # A simple TCP check on its port is a common approach.
+          livenessProbe:
+            tcpSocket:
+              port: http-streamlit # Named port 8501
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: http-streamlit
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      # imagePullSecrets: # Add if your image is in a private registry
+      #   - name: your-registry-secret
+---

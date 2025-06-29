@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: fingyan-ns
+  labels:
+    app: backend
+    tier: api
+spec:
+  type: ClusterIP # Internal service, will be exposed via Ingress
+  ports:
+    - port: 8000 # Port the service will be available on internally
+      targetPort: http # Named port from Deployment/Pod spec (which is 8000)
+      protocol: TCP
+      name: http-backend # Name for the service port
+  selector:
+    app: backend
+    tier: api

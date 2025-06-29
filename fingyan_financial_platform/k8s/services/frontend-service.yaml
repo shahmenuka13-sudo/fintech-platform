@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: fingyan-ns
+  labels:
+    app: frontend
+    tier: web
+spec:
+  type: ClusterIP # Internal service, will be exposed via Ingress
+  ports:
+    - port: 80 # Standard HTTP port for service access if Ingress targets this port
+      targetPort: http-streamlit # Named port from Deployment/Pod spec (which is 8501)
+      protocol: TCP
+      name: http-frontend # Name for the service port
+  selector:
+    app: frontend
+    tier: web

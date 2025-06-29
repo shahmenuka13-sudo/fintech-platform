@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      # requirements.txt is copied into the image during build, mounting it can be useful for dev if changing it often
+      # but for production-like builds, it's better to rebuild the image.
+      # - ./requirements.txt:/app/requirements.txt
+    environment:
+      # Full DATABASE_URL is often preferred for explicitness in production-like settings.
+      # However, our backend code (Alembic env.py, database_service.py) can construct it
+      # from these components if DATABASE_URL is not set.
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres_db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-fingyan_db}"
+      POSTGRES_USER: "${POSTGRES_USER:-user}" # Default user if not set in .env
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-password}" # Default password if not set in .env
+      POSTGRES_HOST: "postgres_db" # Service name of the PostgreSQL container
+      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+      POSTGRES_DB: "${POSTGRES_DB:-fingyan_db}"
+
+      REDIS_HOST: "redis_cache" # For Redis connection if app uses host directly
+      REDIS_PORT: "6379"
+      # REDIS_URL: "redis://redis_cache:6379/0" # Alternative if app expects full URL
+
+      # API_KEY_FINNHUB: "your_finnhub_api_key" # Example for external services
+      PYTHONUNBUFFERED: 1 # For seeing logs in real-time
+      # Add any other backend specific environment variables here
+    depends_on:
+      - postgres_db
+      - redis_cache
+    networks:
+      - finapp_network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app/frontend
+      # - ./requirements.txt:/app/requirements.txt # Similar to backend, usually built into image
+    environment:
+      # Define environment variables for the frontend
+      FASTAPI_BACKEND_URL: "http://backend:8000/api" # For inter-container communication
+      STREAMLIT_SERVER_PORT: "8501" # Already in Dockerfile CMD, but can be explicit
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      - backend
+    networks:
+      - finapp_network
+
+  postgres_db:
+    image: postgres:13
+    ports:
+      - "5432:5432" # Expose for local tools if needed, not strictly necessary for inter-container communication
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "fingyan_db"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - finapp_network
+
+  redis_cache:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379" # Expose for local tools if needed
+    networks:
+      - finapp_network
+
+volumes:
+  postgres_data:
+
+networks:
+  finapp_network:
+    driver: bridge

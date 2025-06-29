@@ -1,0 +1,56 @@
+```mermaid
+graph TD
+    subgraph User Facing
+        A[Streamlit Frontend]
+    end
+
+    subgraph API Layer
+        B[FastAPI Backend]
+        C[NGINX / Load Balancer]
+    end
+
+    subgraph Data & Processing
+        D[PostgreSQL Database]
+        E[Redis Cache]
+        F[AI/ML Models Service/Workers]
+        G[External Data APIs]
+    end
+
+    subgraph Infrastructure & CI/CD
+        H[Docker]
+        I[Kubernetes]
+        J[GitHub Actions CI/CD]
+    end
+
+    A -->|HTTP/WebSocket Requests| C
+    C -->|Routes Traffic| B
+
+    B -->|CRUD Operations| D
+    B -->|Caching| E
+    B -->|Prediction/Analysis Requests| F
+    B -->|Fetches Market Data| G
+
+    F -->|Model Inference| F
+    F -->|May use cached data| E
+    F -->|May use historical data| D
+
+    J -->|Builds & Pushes Images| H
+    J -->|Deploys to| I
+
+    H -->|Contains| A
+    H -->|Contains| B
+    H -->|Contains| F
+
+    I -->|Orchestrates| H
+
+    %% Styling (Optional)
+    classDef frontend fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef backend fill:#ccf,stroke:#333,stroke-width:2px;
+    classDef data fill:#cfc,stroke:#333,stroke-width:2px;
+    classDef infra fill:#fcc,stroke:#333,stroke-width:2px;
+
+    class A frontend;
+    class B,C backend;
+    class D,E,F,G data;
+    class H,I,J infra;
+```

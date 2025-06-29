@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+  namespace: fingyan-ns
+  labels:
+    app: postgres
+    tier: database
+spec:
+  serviceName: "postgres-service" # Headless service for StatefulSet, matches service name below
+  replicas: 1 # For a simple setup. For HA, more complex setups like Patroni/Stolon are needed.
+  selector:
+    matchLabels:
+      app: postgres
+      tier: database
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: database
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: postgres
+          image: postgres:13 # Match version used in docker-compose
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB # Database name to create
+              valueFrom:
+                configMapKeyRef:
+                  name: fingyan-app-config
+                  key: POSTGRES_DB_NAME
+            - name: PGDATA # Data directory
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          # Liveness and Readiness Probes for PostgreSQL
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m" # 0.25 CPU core
+            limits:
+              memory: "1Gi" # Allow up to 1GB
+              cpu: "1" # Allow up to 1 CPU core
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: ["ReadWriteOnce"] # Suitable for a single replica database
+        resources:
+          requests:
+            storage: 5Gi # Request 5 GB of storage. Adjust as needed.
+        # storageClassName: "your-storage-class" # Optional: specify if you have custom storage classes
+        # For local K8s (like Minikube, Kind, Docker Desktop), default storage class usually works.
+---
